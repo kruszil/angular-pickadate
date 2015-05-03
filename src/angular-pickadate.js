@@ -1,3 +1,5 @@
+// Code goes here
+
 ;(function(angular){
   'use strict';
   var indexOf = [].indexOf || function(item) {
@@ -149,6 +151,7 @@
           maxDate: '=',
           disabledDates: '=',
           weekStartsOn: '=',
+          outsideOfMonth: '=',
         },
 
         link: function(scope, element, attrs, ngModel)  {
@@ -159,16 +162,28 @@
               wantsModal    = element[0] instanceof HTMLInputElement,
               compiledHtml  = $compile(TEMPLATE)(scope),
               format        = (attrs.format || 'yyyy-MM-dd').replace(/m/g, 'M'),
-              minDate, maxDate;
+              minDate, maxDate,
+              outsideOfMonth = scope.outsideOfMonth;
 
           scope.displayPicker = !wantsModal;
 
           if (!angular.isNumber(weekStartsOn) || weekStartsOn < 0 || weekStartsOn > 6) {
             weekStartsOn = 0;
           }
+                    
+          if(angular.isNumber(outsideOfMonth) && outsideOfMonth === 1) {
+            outsideOfMonth = 1;
+          } else {
+            outsideOfMonth = 0;
+          }
 
           scope.setDate = function(dateObj) {
             if (isOutOfRange(dateObj.dateObj) || isDateDisabled(dateObj.date)) return;
+            if(isNextMonth(dateObj.dateObj)) {
+              changeMonth(1);
+            } else if (isPrevMonth(dateObj.dateObj)) {
+              changeMonth(-1);
+            }
             selectedDates = allowMultiple ? toggleDate(dateObj.date, selectedDates) : [dateObj.date];
             setViewValue(selectedDates);
             scope.displayPicker = !wantsModal;
@@ -197,7 +212,7 @@
             return date.classNames.concat(extraClasses);
           };
 
-          scope.changeMonth = function(offset) {
+          var changeMonth = scope.changeMonth = function(offset) {
             // If the current date is January 31th, setting the month to date.getMonth() + 1
             // sets the date to March the 3rd, since the date object adds 30 days to the current
             // date. Settings the date to the 2nd day of the month is a workaround to prevent this
@@ -289,16 +304,27 @@
               var classNames = [],
                   dateObj    = allDates[i],
                   date       = dateFilter(dateObj, format),
-                  isDisabled = isDateDisabled(date);
+                  isDisabled = isDateDisabled(date),
+                  isNextMonthDay = isNextMonth(date),
+                  isPrevMonthDay = isPrevMonth(date);
 
               if (isOutOfRange(dateObj) || isDisabled) {
                 classNames.push('pickadate-disabled');
               } else {
+                if (isNextMonthDay) {
+                  classNames.push('pickadate-enabled-nextMonth');
+                
+                }else if(isPrevMonthDay){
+                  classNames.push('pickadate-enabled-prevMonth');
+                }else{
                 classNames.push('pickadate-enabled');
+                }
               }
 
               if (isDisabled)     classNames.push('pickadate-unavailable');
               if (date === today) classNames.push('pickadate-today');
+              
+              
 
               dates.push({date: date, dateObj: dateObj, classNames: classNames});
             }
@@ -332,7 +358,15 @@
           }
 
           function isOutOfRange(date) {
-            return date < minDate || date > maxDate || dateFilter(date, 'M') !== dateFilter(scope.currentDate, 'M');
+            return date < minDate || date > maxDate || (outsideOfMonth === 0 && dateFilter(date, 'M') !== dateFilter(scope.currentDate, 'M'));
+          }
+          
+          function isNextMonth(date) {
+            return dateFilter(date, 'M') > dateFilter(scope.currentDate, 'M');
+          }
+          
+          function isPrevMonth(date) {
+            return dateFilter(date, 'M') < dateFilter(scope.currentDate, 'M');
           }
 
           function isDateDisabled(date) {
